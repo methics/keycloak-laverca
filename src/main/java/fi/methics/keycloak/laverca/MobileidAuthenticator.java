@@ -4,15 +4,15 @@ package fi.methics.keycloak.laverca;
 import fi.methics.laverca.rest.MssClient;
 import fi.methics.laverca.rest.json.MSS_SignatureResp;
 import fi.methics.laverca.rest.util.SignatureProfile;
-
+import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.Authenticator;
-import org.keycloak.credential.CredentialModel;
-import org.keycloak.models.*;
-import org.keycloak.Config;
-import jakarta.ws.rs.core.MultivaluedMap;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
 
 import java.util.Map;
 
@@ -49,6 +49,7 @@ public class MobileidAuthenticator implements Authenticator {
         // Get the MSISDN from form
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
         String msisdn = formData.getFirst("msisdn");
+        //String msisdn = "35847001001";
 
         MssClient client = new MssClient.Builder()
                 .withRestUrl(restUrl)
