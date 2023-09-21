@@ -1,0 +1,30 @@
+{
+  "realmType": "extension",
+  "configDescriptions": [
+    {
+      "name": "msspUrl",
+      "label": "MSSP URL",
+      "helpText": "Enter the MSSP URL for your extension",
+      "type": "string",
+      "default": "https://demo.methics.fi/restapi/",
+      "placeholder": "https://demo.methics.fi/restapi/"
+    },
+    {
+      "name": "apName",
+      "label": "Application Provider name",
+      "helpText": "Enter the Application Provider name",
+      "type": "string",
+      "default": "TestAP",
+      "placeholder": "TestAP"
+    },
+    {
+      "name": "apPassword",
+      "label": "Application Provider password",
+      "helpText": "Enter the Application Provider password",
+      "type": "string",
+      "default": "9TMzfH7EKXETOB8FT5gz",
+      "placeholder": "9TMzfH7EKXETOB8FT5gz"
+    }
+
+  ]
+}
