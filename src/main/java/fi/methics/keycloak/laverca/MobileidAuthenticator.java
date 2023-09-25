@@ -6,6 +6,7 @@ import fi.methics.laverca.rest.json.MSS_SignatureResp;
 import fi.methics.laverca.rest.util.SignatureProfile;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
+import org.apache.http.client.utils.URIUtils;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.Authenticator;
@@ -13,6 +14,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.common.util.UriUtils;
 
 import java.util.Map;
 
@@ -27,6 +29,18 @@ public class MobileidAuthenticator implements Authenticator {
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
+        String query = context.getUriInfo().getRequestUri().getQuery();
+        String[] params = query.split("&");
+
+        String dtbdValue = null;
+        for (String param : params) {
+            if (param.startsWith("dtbd=")) {
+                dtbdValue = param.substring(5);
+                context.getAuthenticationSession().setClientNote("dtbdFromUrl", dtbdValue);
+                break;
+            }
+        }
+
         Response response = context.form().createForm("mobileid-form.ftl");
         context.challenge(response);
     }
@@ -34,13 +48,16 @@ public class MobileidAuthenticator implements Authenticator {
     @Override
     public void action(AuthenticationFlowContext context) {
 
+        // Get dtbd from client note
+        String dtbdValue = context.getAuthenticationSession().getClientNotes().get("dtbdFromUrl");
+
+        // Get AP configs from keycloak
         final Map<String, String> config = context.getAuthenticatorConfig().getConfig();
         String clientId = context.getAuthenticationSession().getClient().getClientId();
-        System.out.println("Client ID: " + context.getAuthenticationSession().getClient().getClientId());
         String restUrl = config.get("mssp-url");
         String apName  = config.get("ap-name");
         String apPwd   = config.get("ap-password");
-        String dtbd    = config.get("data-to-be-displayed") + " " + clientId;
+        String dtbd    = (dtbdValue != null) ? dtbdValue : config.get("data-to-be-displayed") + " " + clientId;
         System.out.println("DTBD: " + dtbd);
 
         // Get the MSISDN from form
