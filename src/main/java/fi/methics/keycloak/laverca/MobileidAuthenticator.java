@@ -27,35 +27,30 @@ public class MobileidAuthenticator implements Authenticator {
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
-        System.out.println("Are we seeing a form?");
-        MultivaluedMap<String, String> formParams = context.getHttpRequest().getDecodedFormParameters();
-        System.out.println(formParams);
-
         Response response = context.form().createForm("mobileid-form.ftl");
         context.challenge(response);
-
     }
 
     @Override
     public void action(AuthenticationFlowContext context) {
 
         final Map<String, String> config = context.getAuthenticatorConfig().getConfig();
-        System.out.println("CONFIG     " + config);
+        String clientId = context.getAuthenticationSession().getClient().getClientId();
+        System.out.println("Client ID: " + context.getAuthenticationSession().getClient().getClientId());
         String restUrl = config.get("mssp-url");
         String apName  = config.get("ap-name");
         String apPwd   = config.get("ap-password");
-        String dtbd    = config.get("data-to-be-displayed");
+        String dtbd    = config.get("data-to-be-displayed") + " " + clientId;
+        System.out.println("DTBD: " + dtbd);
 
         // Get the MSISDN from form
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
         String msisdn = formData.getFirst("msisdn");
-        //String msisdn = "35847001001";
 
         MssClient client = new MssClient.Builder()
                 .withRestUrl(restUrl)
                 .withPassword(apName, apPwd)
                 .build();
-
 
         try {
             MSS_SignatureResp resp = client.authenticate(
@@ -107,9 +102,8 @@ public class MobileidAuthenticator implements Authenticator {
             }
         } catch (Exception e) {
             System.out.println("Failed to authenticate user" + e);
-            context.failure(AuthenticationFlowError.INVALID_CREDENTIALS);
+            context.failure(AuthenticationFlowError.GENERIC_AUTHENTICATION_ERROR);
         }
-        //context.success();
 
     }
 
