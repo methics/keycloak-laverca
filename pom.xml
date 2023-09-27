@@ -37,6 +37,13 @@
 
     <dependency>
       <groupId>org.keycloak</groupId>
+      <artifactId>keycloak-services</artifactId>
+      <version>22.0.3</version>
+      <scope>import</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.keycloak</groupId>
       <artifactId>keycloak-server-spi</artifactId>
       <version>22.0.3</version>
       <scope>provided</scope>

@@ -10,7 +10,9 @@ import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.Authenticator;
 import org.keycloak.models.*;
+import org.keycloak.sessions.AuthenticationSessionModel;
 
+import java.util.Collections;
 import java.util.Map;
 
 
@@ -85,20 +87,25 @@ public class MobileidAuthenticator implements Authenticator {
                     UserModel newUser = session.users().addUser(realm, msisdn);
 
                     // Set account enabled and email verified to not face "Network error"...
-                    newUser.setEmail("something@methics.fi");
+                    //newUser.setEmail("something@methics.fi");
                     newUser.setEnabled(true);
-                    newUser.setEmailVerified(true);
+                    newUser.setSingleAttribute("user_attr", "test123");
+
+                    //newUser.setEmailVerified(true);
                     RoleModel adminRole = realm.getRole("admin");
                     if (adminRole != null) {
                         newUser.grantRole(adminRole);
                     }
                     context.setUser(newUser);
                 } else {
+                    //TODO: What attributes do we set?
+                    existingUser.setSingleAttribute("user_attr", "test123");
+
                     System.out.println("Found existing keycloak user for " + msisdn);
                     // Set account enabled and email verified to not face "Network error"...
                     existingUser.setEnabled(true);
-                    existingUser.setEmail("abc@methics.fi");
-                    existingUser.setEmailVerified(true);
+                    //existingUser.setEmail("abc@methics.fi");
+                    //existingUser.setEmailVerified(true);
                     //System.out.println(existingUser.credentialManager().isValid());
                     RoleModel adminRole = realm.getRole("admin");
 
@@ -110,7 +117,6 @@ public class MobileidAuthenticator implements Authenticator {
                     System.out.println("AUTHENTICATED USER: " + existingUser.getUsername());
                 }
 
-                context.getAuthenticationSession().setAuthNote("methics_claim", "methics_value");
                 context.success();
             }
         } catch (Exception e) {

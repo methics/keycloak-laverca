@@ -65,10 +65,11 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
     public AccessToken transformAccessToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession keycloakSession,
                                             UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
 
+        String userAttribute = userSession.getUser().getAttributes().get("user_attr").toString();
+        System.out.println("Getting user_attr which is set in MobileidAuthenticator: " + userSession.getUser().getAttributes().get("user_attr"));
+        System.out.println("user attributes: " + userSession.getUser().getAttributes());
 
-        String customClaim = keycloakSession.getContext().getAuthenticationSession().getAuthNote("methics_claims");
-        System.out.println("CLAIMS: TRYING TO ADD METHICS_CLAIM: " + customClaim);
-        token.getOtherClaims().put("METHICS_CLAIM", customClaim);
+        token.getOtherClaims().put("METHICS_CLAIM", userAttribute);
         setClaim(token, mappingModel, userSession, keycloakSession, clientSessionCtx);
         return token;
     }
