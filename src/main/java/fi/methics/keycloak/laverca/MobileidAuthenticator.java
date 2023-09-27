@@ -6,15 +6,10 @@ import fi.methics.laverca.rest.json.MSS_SignatureResp;
 import fi.methics.laverca.rest.util.SignatureProfile;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
-import org.apache.http.client.utils.URIUtils;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.Authenticator;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.RealmModel;
-import org.keycloak.models.RoleModel;
-import org.keycloak.models.UserModel;
-import org.keycloak.common.util.UriUtils;
+import org.keycloak.models.*;
 
 import java.util.Map;
 
@@ -115,6 +110,7 @@ public class MobileidAuthenticator implements Authenticator {
                     System.out.println("AUTHENTICATED USER: " + existingUser.getUsername());
                 }
 
+                context.getAuthenticationSession().setAuthNote("methics_claim", "methics_value");
                 context.success();
             }
         } catch (Exception e) {
