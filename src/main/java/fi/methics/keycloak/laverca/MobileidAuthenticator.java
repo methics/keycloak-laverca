@@ -51,11 +51,11 @@ public class MobileidAuthenticator implements Authenticator {
         // Get AP configs from keycloak
         final Map<String, String> config = context.getAuthenticatorConfig().getConfig();
         String clientId = context.getAuthenticationSession().getClient().getClientId();
-        String restUrl = config.get("mssp-url");
-        String apName  = config.get("ap-name");
-        String apPwd   = config.get("ap-password");
-        String dtbd    = (dtbdValue != null) ? dtbdValue : config.get("data-to-be-displayed") + " " + clientId;
-        System.out.println("DTBD: " + dtbd);
+        String restUrl  = config.get("mssp-url");
+        String apName   = config.get("ap-name");
+        String apPwd    = config.get("ap-password");
+        String dtbd     = (dtbdValue != null) ? dtbdValue : config.get("data-to-be-displayed") + " " + clientId;
+        //System.out.println("DTBD: " + dtbd);
 
         // Get the MSISDN from form
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
@@ -82,7 +82,7 @@ public class MobileidAuthenticator implements Authenticator {
                 UserModel existingUser = session.users().getUserByUsername(realm, msisdn);
 
                 if (existingUser == null) {
-                    System.out.println("User for " + msisdn + " does not have user, lets create it");
+                    //System.out.println("User for " + msisdn + " does not have user, lets create it");
                     // We need to create keycloak user for this MSISDN, so we can issue tokens
                     UserModel newUser = session.users().addUser(realm, msisdn);
 
@@ -92,10 +92,13 @@ public class MobileidAuthenticator implements Authenticator {
                     newUser.setSingleAttribute("user_attr", "test123");
 
                     //newUser.setEmailVerified(true);
+                    /*
                     RoleModel adminRole = realm.getRole("admin");
                     if (adminRole != null) {
                         newUser.grantRole(adminRole);
                     }
+
+                     */
                     context.setUser(newUser);
                 } else {
                     //TODO: What attributes do we set?
@@ -107,12 +110,15 @@ public class MobileidAuthenticator implements Authenticator {
                     //existingUser.setEmail("abc@methics.fi");
                     //existingUser.setEmailVerified(true);
                     //System.out.println(existingUser.credentialManager().isValid());
-                    RoleModel adminRole = realm.getRole("admin");
+                    //RoleModel adminRole = realm.getRole("admin");
 
                     // Don't try to grant admin role if it doesnt exist
+                    /*
                     if (adminRole != null) {
                         existingUser.grantRole(adminRole);
                     }
+
+                     */
                     context.setUser(existingUser);
                     System.out.println("AUTHENTICATED USER: " + existingUser.getUsername());
                 }
