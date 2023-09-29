@@ -62,8 +62,14 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
 
         //TODO: Find out why this errors
         ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
-        String msspRoles = userSession.getUser().getAttributes().get("mssp_roles").toString();
-        if (msspRoles != null) token.getOtherClaims().put("mssp_roles", msspRoles);
+
+        // Get roles from user attributes
+        List<String> msspRoles = userSession.getUser().getAttributes().get("mssp_roles");
+
+        if (msspRoles != null) {
+            String roles = String.join(", ", msspRoles);
+            token.getOtherClaims().put("mssp_roles", roles);
+        }
 
         setClaim(token, mappingModel, userSession, keycloakSession, clientSessionCtx);
         return token;
@@ -83,10 +89,10 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
         System.out.println("(transformIDToken): MSISDN: " + msisdn);
 
         // What should we put in claims?
-        String givenName = userSession.getUser().getAttributes().get("givenname").toString();
-        String surname   = userSession.getUser().getAttributes().get("surname").toString();
-        String country   = userSession.getUser().getAttributes().get("c").toString();
-        String email     = userSession.getUser().getAttributes().get("email").toString();
+        String givenName = userSession.getUser().getFirstAttribute("givenname");
+        String surname   = userSession.getUser().getFirstAttribute("surname");
+        String country   = userSession.getUser().getFirstAttribute("c");
+        String email     = userSession.getUser().getFirstAttribute("email");
 
         if (msisdn != null)    token.setPhoneNumber(msisdn);
         if (givenName != null) token.setName(givenName);
