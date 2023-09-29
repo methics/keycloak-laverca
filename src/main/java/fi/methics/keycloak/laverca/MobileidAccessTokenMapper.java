@@ -8,6 +8,8 @@ import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.mappers.*;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessToken;
+import org.keycloak.representations.IDToken;
+import org.keycloak.protocol.ProtocolMapperUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +19,17 @@ import java.util.Map;
 public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
     public static final String PROVIDER_ID = "oidc-lavercaprotocolmapper";
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<ProviderConfigProperty>();
+
+
+    static {
+        ProviderConfigProperty property;
+        property = new ProviderConfigProperty();
+        property.setName("claims");
+        property.setLabel("Claims");
+        property.setHelpText("Claims read from user attributes");
+        property.setType(ProviderConfigProperty.MULTIVALUED_STRING_TYPE);
+        configProperties.add(property);
+    }
 
 
     @Override
@@ -47,12 +60,41 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
     public AccessToken transformAccessToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession keycloakSession,
                                             UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
 
-        String userAttribute = userSession.getUser().getAttributes().get("user_attr").toString();
-        System.out.println("Getting user_attr which is set in MobileidAuthenticator: " + userSession.getUser().getAttributes().get("user_attr"));
-        System.out.println("user attributes: " + userSession.getUser().getAttributes());
+        //TODO: Find out why this errors
+        ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
+        String msspRoles = userSession.getUser().getAttributes().get("mssp_roles").toString();
+        if (msspRoles != null) token.getOtherClaims().put("mssp_roles", msspRoles);
 
-        token.getOtherClaims().put("METHICS_CLAIM", userAttribute);
         setClaim(token, mappingModel, userSession, keycloakSession, clientSessionCtx);
+        return token;
+    }
+
+
+    public IDToken transformIDToken(IDToken token, ProtocolMapperModel mappingModel, KeycloakSession session, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        // When trying to configure these in dedicated scopes -> mapper details we get "Could not update mapping: 'unknown_error'"
+        ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
+
+        // See what user attributes we saved
+        String userAttributes = userSession.getUser().getAttributes().toString();
+        System.out.println("(transformIDToken) userAttributes: " + userAttributes);
+
+        //TODO: For now we have to hardcode these claim values since configs cant be saved in keycloak due to error
+        String msisdn = userSession.getUser().getUsername();
+        System.out.println("(transformIDToken): MSISDN: " + msisdn);
+
+        // What should we put in claims?
+        String givenName = userSession.getUser().getAttributes().get("givenname").toString();
+        String surname   = userSession.getUser().getAttributes().get("surname").toString();
+        String country   = userSession.getUser().getAttributes().get("c").toString();
+        String email     = userSession.getUser().getAttributes().get("email").toString();
+
+        if (msisdn != null)    token.setPhoneNumber(msisdn);
+        if (givenName != null) token.setName(givenName);
+        if (surname != null)   token.setFamilyName(surname);
+        if (country != null)   token.setLocale(country);
+        if (email != null)     token.setEmail(email);
+
+        setClaim(token, mappingModel, userSession, session, clientSessionCtx);
         return token;
     }
 

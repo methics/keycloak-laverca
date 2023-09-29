@@ -2,7 +2,9 @@ package fi.methics.keycloak.laverca;
 
 
 import fi.methics.laverca.rest.MssClient;
-import fi.methics.laverca.rest.json.MSS_SignatureResp;
+import fi.methics.laverca.rest.json.*;
+import fi.methics.laverca.rest.util.DTBS;
+import fi.methics.laverca.rest.util.MSS_SignatureReqBuilder;
 import fi.methics.laverca.rest.util.SignatureProfile;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
@@ -12,8 +14,7 @@ import org.keycloak.authentication.Authenticator;
 import org.keycloak.models.*;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
 
 
 public class MobileidAuthenticator implements Authenticator {
@@ -54,8 +55,12 @@ public class MobileidAuthenticator implements Authenticator {
         String restUrl  = config.get("mssp-url");
         String apName   = config.get("ap-name");
         String apPwd    = config.get("ap-password");
+        String enabledAttributes = config.get("enabled-subject-attributes");
         String dtbd     = (dtbdValue != null) ? dtbdValue : config.get("data-to-be-displayed") + " " + clientId;
-        //System.out.println("DTBD: " + dtbd);
+
+        // EnabledAttributes configured in keycloak
+        List<String> attrs = Arrays.asList(enabledAttributes.split("##"));
+        System.out.println("ENABLED ATTRIBUTES: " + enabledAttributes);
 
         // Get the MSISDN from form
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
@@ -66,11 +71,28 @@ public class MobileidAuthenticator implements Authenticator {
                 .withPassword(apName, apPwd)
                 .build();
 
+        final DTBS dtbs = new DTBS(dtbd);
+
+        MSS_SignatureReqBuilder builder = new MSS_SignatureReqBuilder();
+        builder.withDtbd(dtbd);
+        builder.withDtbs(dtbs);
+        builder.withMssFormat(MssClient.FORMAT_CMS);
+        builder.withMsisdn(msisdn);
+        builder.withSignatureProfile(SignatureProfile.of("http://alauda.mobi/digitalSignature"));
+
+        MSS_SignatureReq req = builder.build();
+        req.AdditionalServices.add(new AdditionalServices("http://www.methics.fi/KiuruMSSP/v5.0.0#role"));
+
         try {
+            /*
             MSS_SignatureResp resp = client.authenticate(
                     msisdn,
                     dtbd,
                     SignatureProfile.of("http://alauda.mobi/digitalSignature"));
+             */
+
+            MSS_SignatureResp resp = client.sign(req);
+
             // Authenticated
             if (resp.isSuccessful()) {
                 System.out.println("Successfully authenticated " + resp.getSubjectDN());
@@ -81,44 +103,46 @@ public class MobileidAuthenticator implements Authenticator {
                 RealmModel realm = context.getRealm();
                 UserModel existingUser = session.users().getUserByUsername(realm, msisdn);
 
+                // Remove debug
+                System.out.println("DEBUG: SUBJECT" + resp.getSubjectDN());
+
+
                 if (existingUser == null) {
-                    //System.out.println("User for " + msisdn + " does not have user, lets create it");
-                    // We need to create keycloak user for this MSISDN, so we can issue tokens
                     UserModel newUser = session.users().addUser(realm, msisdn);
-
-                    // Set account enabled and email verified to not face "Network error"...
-                    //newUser.setEmail("something@methics.fi");
                     newUser.setEnabled(true);
-                    newUser.setSingleAttribute("user_attr", "test123");
 
-                    //newUser.setEmailVerified(true);
-                    /*
-                    RoleModel adminRole = realm.getRole("admin");
-                    if (adminRole != null) {
-                        newUser.grantRole(adminRole);
+                    for (String attr : attrs) {
+                        if (resp.getSubjectAttribute(attr) == null) {
+                            System.out.println("Could not find " + attr + " in resp.getSubjectAttribute()");
+                            continue;
+                        }
+                        newUser.setSingleAttribute(attr, resp.getSubjectAttribute(attr));
                     }
-
-                     */
                     context.setUser(newUser);
                 } else {
-                    //TODO: What attributes do we set?
-                    existingUser.setSingleAttribute("user_attr", "test123");
 
-                    System.out.println("Found existing keycloak user for " + msisdn);
-                    // Set account enabled and email verified to not face "Network error"...
-                    existingUser.setEnabled(true);
-                    //existingUser.setEmail("abc@methics.fi");
-                    //existingUser.setEmailVerified(true);
-                    //System.out.println(existingUser.credentialManager().isValid());
-                    //RoleModel adminRole = realm.getRole("admin");
-
-                    // Don't try to grant admin role if it doesnt exist
-                    /*
-                    if (adminRole != null) {
-                        existingUser.grantRole(adminRole);
+                    // Loop through enabled attributes configured in keycloak and add them to user attributes
+                    // so we can use them in MobileidAccessTokenMapper
+                    for (String attr : attrs) {
+                        if (resp.getSubjectAttribute(attr) == null) {
+                            System.out.println("Could not find " + attr + " in resp.getSubjectAttribute()");
+                            continue;
+                        }
+                        System.out.println("found attribute: " + resp.getSubjectAttribute(attr));
+                        existingUser.setSingleAttribute(attr, resp.getSubjectAttribute(attr));
                     }
 
-                     */
+                    // Get MSSP roles
+                    for (ServiceResponses serviceResp : resp.ServiceResponses) {
+                        if (serviceResp.Description.equals("http://www.methics.fi/KiuruMSSP/v5.0.0#role")) {
+                            System.out.println(serviceResp.Roles);
+                            // add roles to user attributes to be used in accessToken
+                            existingUser.setAttribute("mssp_roles", serviceResp.Roles);
+                        }
+                    }
+
+                    System.out.println("Found existing keycloak user for " + msisdn);
+                    existingUser.setEnabled(true);
                     context.setUser(existingUser);
                     System.out.println("AUTHENTICATED USER: " + existingUser.getUsername());
                 }

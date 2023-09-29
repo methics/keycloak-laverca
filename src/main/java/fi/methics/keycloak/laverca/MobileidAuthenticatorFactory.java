@@ -50,6 +50,14 @@ public class MobileidAuthenticatorFactory implements AuthenticatorFactory {
             property.setHelpText("Authentication message (DTBD)");
             configProperties.add(property);
         }
+        {
+            ProviderConfigProperty property = new ProviderConfigProperty();
+            property.setName("enabled-subject-attributes");
+            property.setLabel("Enabled Subject Attributes");
+            property.setType(ProviderConfigProperty.MULTIVALUED_STRING_TYPE);
+            property.setHelpText("Keycloak attributes read from user's authentication certificate subject");
+            configProperties.add(property);
+        }
 
     }
 
