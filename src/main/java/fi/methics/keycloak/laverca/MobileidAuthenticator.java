@@ -60,7 +60,6 @@ public class MobileidAuthenticator implements Authenticator {
 
         // EnabledAttributes configured in keycloak
         List<String> attrs = Arrays.asList(enabledAttributes.split("##"));
-        System.out.println("ENABLED ATTRIBUTES: " + enabledAttributes);
 
         // Get the MSISDN from form
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
@@ -84,28 +83,14 @@ public class MobileidAuthenticator implements Authenticator {
         req.AdditionalServices.add(new AdditionalServices("http://www.methics.fi/KiuruMSSP/v5.0.0#role"));
 
         try {
-            /*
-            MSS_SignatureResp resp = client.authenticate(
-                    msisdn,
-                    dtbd,
-                    SignatureProfile.of("http://alauda.mobi/digitalSignature"));
-             */
-
             MSS_SignatureResp resp = client.sign(req);
 
             // Authenticated
             if (resp.isSuccessful()) {
-                System.out.println("Successfully authenticated " + resp.getSubjectDN());
-                System.out.println("cert: " + resp.getCertificate());
-
                 // Check does this msisdn have a keycloak user already?
                 KeycloakSession session = context.getSession();
                 RealmModel realm = context.getRealm();
                 UserModel existingUser = session.users().getUserByUsername(realm, msisdn);
-
-                // Remove debug
-                System.out.println("DEBUG: SUBJECT" + resp.getSubjectDN());
-
 
                 if (existingUser == null) {
                     UserModel newUser = session.users().addUser(realm, msisdn);
@@ -113,7 +98,6 @@ public class MobileidAuthenticator implements Authenticator {
 
                     for (String attr : attrs) {
                         if (resp.getSubjectAttribute(attr) == null) {
-                            System.out.println("Could not find " + attr + " in resp.getSubjectAttribute()");
                             continue;
                         }
                         newUser.setSingleAttribute(attr, resp.getSubjectAttribute(attr));
@@ -125,10 +109,8 @@ public class MobileidAuthenticator implements Authenticator {
                     // so we can use them in MobileidAccessTokenMapper
                     for (String attr : attrs) {
                         if (resp.getSubjectAttribute(attr) == null) {
-                            System.out.println("Could not find " + attr + " in resp.getSubjectAttribute()");
                             continue;
                         }
-                        System.out.println("found attribute: " + resp.getSubjectAttribute(attr));
                         existingUser.setSingleAttribute(attr, resp.getSubjectAttribute(attr));
                     }
 
@@ -141,10 +123,8 @@ public class MobileidAuthenticator implements Authenticator {
                         }
                     }
 
-                    System.out.println("Found existing keycloak user for " + msisdn);
                     existingUser.setEnabled(true);
                     context.setUser(existingUser);
-                    System.out.println("AUTHENTICATED USER: " + existingUser.getUsername());
                 }
 
                 context.success();

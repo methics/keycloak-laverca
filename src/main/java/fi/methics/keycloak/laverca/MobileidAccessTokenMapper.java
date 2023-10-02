@@ -80,25 +80,21 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
         // When trying to configure these in dedicated scopes -> mapper details we get "Could not update mapping: 'unknown_error'"
         ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
 
-        // See what user attributes we saved
-        String userAttributes = userSession.getUser().getAttributes().toString();
-        System.out.println("(transformIDToken) userAttributes: " + userAttributes);
-
         //TODO: For now we have to hardcode these claim values since configs cant be saved in keycloak due to error
         String msisdn = userSession.getUser().getUsername();
-        System.out.println("(transformIDToken): MSISDN: " + msisdn);
-
-        // What should we put in claims?
         String givenName = userSession.getUser().getFirstAttribute("givenname");
         String surname   = userSession.getUser().getFirstAttribute("surname");
         String country   = userSession.getUser().getFirstAttribute("c");
         String email     = userSession.getUser().getFirstAttribute("email");
 
-        if (msisdn != null)    token.setPhoneNumber(msisdn);
-        if (givenName != null) token.setName(givenName);
-        if (surname != null)   token.setFamilyName(surname);
-        if (country != null)   token.setLocale(country);
-        if (email != null)     token.setEmail(email);
+        if (msisdn    != null)  token.setPhoneNumber(msisdn);
+        if (givenName != null)  token.setName(givenName);
+        if (surname   != null)  token.setFamilyName(surname);
+        if (country   != null)  token.setLocale(country);
+        if (email     != null)  token.setEmail(email);
+
+        // To add claims not available to be set with keycloak defaults, use:
+        // token.getOtherClaims().put("key","value");
 
         setClaim(token, mappingModel, userSession, session, clientSessionCtx);
         return token;
