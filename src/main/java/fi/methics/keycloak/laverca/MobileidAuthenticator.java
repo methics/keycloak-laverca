@@ -98,35 +98,12 @@ public class MobileidAuthenticator implements Authenticator {
                     logger.info("No existing user found for " + msisdn + ", lets create one");
                     UserModel newUser = session.users().addUser(realm, msisdn);
                     newUser.setEnabled(true);
-
-                    for (String attr : attrs) {
-                        if (resp.getSubjectAttribute(attr) == null) {
-                            continue;
-                        }
-                        newUser.setSingleAttribute(attr, resp.getSubjectAttribute(attr));
-                    }
+                    this.setAttributes(newUser, attrs, resp);
+                    this.setMsspRoles(newUser, resp);
                     context.setUser(newUser);
                 } else {
-
-                    // Loop through enabled attributes configured in keycloak and add them to user attributes
-                    // so we can use them in MobileidAccessTokenMapper
-                    for (String attr : attrs) {
-                        if (resp.getSubjectAttribute(attr) == null) {
-                            continue;
-                        }
-                        existingUser.setSingleAttribute(attr, resp.getSubjectAttribute(attr));
-                    }
-
-                    // Get MSSP roles
-                    for (ServiceResponses serviceResp : resp.ServiceResponses) {
-                        if (serviceResp.Description.equals("http://www.methics.fi/KiuruMSSP/v5.0.0#role")) {
-                            logger.info("Found MSSP roles: " + serviceResp.Roles);
-                            System.out.println(serviceResp.Roles);
-                            // add roles to user attributes to be used in accessToken
-                            existingUser.setAttribute("mssp_roles", serviceResp.Roles);
-                        }
-                    }
-
+                    this.setAttributes(existingUser, attrs, resp);
+                    this.setMsspRoles(existingUser, resp);
                     existingUser.setEnabled(true);
                     context.setUser(existingUser);
                 }
@@ -134,8 +111,7 @@ public class MobileidAuthenticator implements Authenticator {
                 context.success();
             }
         } catch (Exception e) {
-            System.out.println("Failed to authenticate user" + e);
-            logger.error("Failed to authenticate user: " + msisdn);
+            logger.error("Failed to authenticate user: " + msisdn + " " + e);
             context.failure(AuthenticationFlowError.GENERIC_AUTHENTICATION_ERROR);
         }
 
@@ -158,6 +134,36 @@ public class MobileidAuthenticator implements Authenticator {
 
     @Override
     public void close() {
+    }
+
+    /**
+     * Sets enabled subject attributes for the user. These are the expected values to be saved from subject.
+     * @param user
+     * @param attributes
+     * @param resp
+     */
+    private void setAttributes(UserModel user, List<String> attributes, MSS_SignatureResp resp) {
+        logger.info("Setting attributes for " + user.getUsername());
+        for (String attr : attributes) {
+            if (resp.getSubjectAttribute(attr) == null) {
+                continue;
+            }
+            user.setSingleAttribute(attr, resp.getSubjectAttribute(attr));
+        }
+    }
+
+    /**
+     * Sets MSSP roles to users attributes, so they can be accessed later.
+     * @param user
+     * @param resp
+     */
+    private void setMsspRoles(UserModel user, MSS_SignatureResp resp) {
+        for (ServiceResponses serviceResp : resp.ServiceResponses) {
+            if (serviceResp.Description.equals("http://www.methics.fi/KiuruMSSP/v5.0.0#role")) {
+                logger.info("Found MSSP roles: " + serviceResp.Roles);
+                user.setAttribute("mssp_roles", serviceResp.Roles);
+            }
+        }
     }
 
 }

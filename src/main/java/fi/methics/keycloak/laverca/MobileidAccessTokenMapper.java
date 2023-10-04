@@ -1,9 +1,7 @@
 package fi.methics.keycloak.laverca;
 
-import org.keycloak.models.ClientSessionContext;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.ProtocolMapperModel;
-import org.keycloak.models.UserSessionModel;
+import org.keycloak.Config;
+import org.keycloak.models.*;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.mappers.*;
 import org.keycloak.provider.ProviderConfigProperty;
@@ -61,7 +59,7 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
                                             UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
 
         //TODO: Find out why this errors
-        ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
+        //ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
 
         // Get roles from user attributes
         List<String> msspRoles = userSession.getUser().getAttributes().get("mssp_roles");
@@ -78,21 +76,22 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
 
     public IDToken transformIDToken(IDToken token, ProtocolMapperModel mappingModel, KeycloakSession session, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
         // When trying to configure these in dedicated scopes -> mapper details we get "Could not update mapping: 'unknown_error'"
-        ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
+        //ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
+
+        UserModel user = userSession.getUser();
 
         //TODO: For now we have to hardcode these claim values since configs cant be saved in keycloak due to error
-        String msisdn = userSession.getUser().getUsername();
-        String givenName = userSession.getUser().getFirstAttribute("givenname");
-        String surname   = userSession.getUser().getFirstAttribute("surname");
-        String country   = userSession.getUser().getFirstAttribute("c");
-        String email     = userSession.getUser().getFirstAttribute("email");
+        String msisdn    = userSession.getUser().getUsername();
+        String givenName = user.getFirstAttribute("givenname");
+        String surname   = user.getFirstAttribute("surname");
+        String country   = user.getFirstAttribute("c");
+        String email     = user.getFirstAttribute("email");
 
         if (msisdn    != null)  token.setPhoneNumber(msisdn);
         if (givenName != null)  token.setName(givenName);
         if (surname   != null)  token.setFamilyName(surname);
         if (country   != null)  token.setLocale(country);
         if (email     != null)  token.setEmail(email);
-
         // To add claims not available to be set with keycloak defaults, use:
         // token.getOtherClaims().put("key","value");
 
@@ -100,8 +99,7 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
         return token;
     }
 
-    public static ProtocolMapperModel create(String name,
-                                             boolean accessToken, boolean idToken, boolean userInfo) {
+    public static ProtocolMapperModel create(String name, boolean accessToken, boolean idToken, boolean userInfo) {
         ProtocolMapperModel mapper = new ProtocolMapperModel();
         mapper.setName(name);
         mapper.setProtocolMapper(PROVIDER_ID);
