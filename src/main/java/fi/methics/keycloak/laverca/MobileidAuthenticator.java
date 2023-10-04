@@ -12,13 +12,11 @@ import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.Authenticator;
 import org.keycloak.models.*;
-import org.keycloak.sessions.AuthenticationSessionModel;
-
 import java.util.*;
-
+import org.jboss.logging.Logger;
 
 public class MobileidAuthenticator implements Authenticator {
-
+    private static final Logger logger = Logger.getLogger(MobileidAuthenticator.class);
     private final KeycloakSession session;
 
     public MobileidAuthenticator(KeycloakSession session) {
@@ -38,6 +36,8 @@ public class MobileidAuthenticator implements Authenticator {
                 break;
             }
         }
+
+        if (dtbdValue == null) logger.warn("Client application did not send DTBD");
 
         Response response = context.form().createForm("mobileid-form.ftl");
         context.challenge(response);
@@ -60,6 +60,7 @@ public class MobileidAuthenticator implements Authenticator {
 
         // EnabledAttributes configured in keycloak
         List<String> attrs = Arrays.asList(enabledAttributes.split("##"));
+        if (attrs.isEmpty()) logger.warn("Admin has not configured enabled subject attributes");
 
         // Get the MSISDN from form
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
@@ -87,12 +88,14 @@ public class MobileidAuthenticator implements Authenticator {
 
             // Authenticated
             if (resp.isSuccessful()) {
+                logger.info("Successfully authenticated with MobileID");
                 // Check does this msisdn have a keycloak user already?
                 KeycloakSession session = context.getSession();
                 RealmModel realm = context.getRealm();
                 UserModel existingUser = session.users().getUserByUsername(realm, msisdn);
 
                 if (existingUser == null) {
+                    logger.info("No existing user found for " + msisdn + ", lets create one");
                     UserModel newUser = session.users().addUser(realm, msisdn);
                     newUser.setEnabled(true);
 
@@ -117,6 +120,7 @@ public class MobileidAuthenticator implements Authenticator {
                     // Get MSSP roles
                     for (ServiceResponses serviceResp : resp.ServiceResponses) {
                         if (serviceResp.Description.equals("http://www.methics.fi/KiuruMSSP/v5.0.0#role")) {
+                            logger.info("Found MSSP roles: " + serviceResp.Roles);
                             System.out.println(serviceResp.Roles);
                             // add roles to user attributes to be used in accessToken
                             existingUser.setAttribute("mssp_roles", serviceResp.Roles);
@@ -131,6 +135,7 @@ public class MobileidAuthenticator implements Authenticator {
             }
         } catch (Exception e) {
             System.out.println("Failed to authenticate user" + e);
+            logger.error("Failed to authenticate user: " + msisdn);
             context.failure(AuthenticationFlowError.GENERIC_AUTHENTICATION_ERROR);
         }
 
