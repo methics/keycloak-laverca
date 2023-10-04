@@ -46,6 +46,7 @@ public class MobileidAuthenticator implements Authenticator {
     @Override
     public void action(AuthenticationFlowContext context) {
 
+
         // Get dtbd from client note
         String dtbdValue = context.getAuthenticationSession().getClientNotes().get("dtbdFromUrl");
 
@@ -100,6 +101,16 @@ public class MobileidAuthenticator implements Authenticator {
                     newUser.setEnabled(true);
                     this.setAttributes(newUser, attrs, resp);
                     this.setMsspRoles(newUser, resp);
+
+                    // If we are trying to log in to master realm, we need to give the user an admin role
+                    if (realm.getName().equals("master")) {
+                        RoleModel adminRole = realm.getRole("admin");
+                        if (adminRole != null) {
+                            logger.info("Creating user for the master realm, adding admin role to give access to admin UI");
+                            newUser.grantRole(adminRole);
+                        }
+                    }
+
                     context.setUser(newUser);
                 } else {
                     this.setAttributes(existingUser, attrs, resp);
