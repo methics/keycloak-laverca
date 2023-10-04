@@ -28,6 +28,7 @@ public class MobileidAuthenticator implements Authenticator {
         String query = context.getUriInfo().getRequestUri().getQuery();
         String[] params = query.split("&");
 
+        // Get DTBD from the client, if they sent it.
         String dtbdValue = null;
         for (String param : params) {
             if (param.startsWith("dtbd=")) {
@@ -39,14 +40,13 @@ public class MobileidAuthenticator implements Authenticator {
 
         if (dtbdValue == null) logger.warn("Client application did not send DTBD");
 
+        // Display mobileid form
         Response response = context.form().createForm("mobileid-form.ftl");
         context.challenge(response);
     }
 
     @Override
     public void action(AuthenticationFlowContext context) {
-
-
         // Get dtbd from client note
         String dtbdValue = context.getAuthenticationSession().getClientNotes().get("dtbdFromUrl");
 
@@ -89,36 +89,18 @@ public class MobileidAuthenticator implements Authenticator {
 
             // Authenticated
             if (resp.isSuccessful()) {
-                logger.info("Successfully authenticated with MobileID");
-                // Check does this msisdn have a keycloak user already?
+                logger.info("Successfully authenticated with MobileID with msisdn " + msisdn);
                 KeycloakSession session = context.getSession();
                 RealmModel realm = context.getRealm();
+
+                // Check if user exists in keycloak, if not then create it
                 UserModel existingUser = session.users().getUserByUsername(realm, msisdn);
+                UserModel user = (existingUser == null) ? this.createUser(context, msisdn) : existingUser;
 
-                if (existingUser == null) {
-                    logger.info("No existing user found for " + msisdn + ", lets create one");
-                    UserModel newUser = session.users().addUser(realm, msisdn);
-                    newUser.setEnabled(true);
-                    this.setAttributes(newUser, attrs, resp);
-                    this.setMsspRoles(newUser, resp);
-
-                    // If we are trying to log in to master realm, we need to give the user an admin role
-                    if (realm.getName().equals("master")) {
-                        RoleModel adminRole = realm.getRole("admin");
-                        if (adminRole != null) {
-                            logger.info("Creating user for the master realm, adding admin role to give access to admin UI");
-                            newUser.grantRole(adminRole);
-                        }
-                    }
-
-                    context.setUser(newUser);
-                } else {
-                    this.setAttributes(existingUser, attrs, resp);
-                    this.setMsspRoles(existingUser, resp);
-                    existingUser.setEnabled(true);
-                    context.setUser(existingUser);
-                }
-
+                // Set attributes and roles for current user
+                this.setAttributes(user, attrs, resp);
+                this.setMsspRoles(user, resp);
+                context.setUser(user);
                 context.success();
             }
         } catch (Exception e) {
@@ -175,6 +157,24 @@ public class MobileidAuthenticator implements Authenticator {
                 user.setAttribute("mssp_roles", serviceResp.Roles);
             }
         }
+    }
+
+    private UserModel createUser(AuthenticationFlowContext context, String msisdn) {
+        logger.info("No user found for msisdn " + msisdn + ", creating user");
+        KeycloakSession session = this.session;
+        UserModel newUser       = session.users().addUser(context.getRealm(), msisdn);
+        RealmModel realm        = context.getRealm();
+        newUser.setEnabled(true);
+
+        if (realm.getName().equals("master")) {
+            RoleModel adminRole = realm.getRole("admin");
+            if (adminRole != null) {
+                logger.info("Adding admin role for " + msisdn +" to give access to admin UI");
+                newUser.grantRole(adminRole);
+            }
+        }
+
+        return newUser;
     }
 
 }
