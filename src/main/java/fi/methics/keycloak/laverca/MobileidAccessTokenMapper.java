@@ -1,14 +1,11 @@
 package fi.methics.keycloak.laverca;
 
-import org.keycloak.Config;
 import org.keycloak.models.*;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.mappers.*;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.IDToken;
-import org.keycloak.protocol.ProtocolMapperUtils;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,18 +14,6 @@ import java.util.Map;
 public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
     public static final String PROVIDER_ID = "oidc-lavercaprotocolmapper";
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<ProviderConfigProperty>();
-
-
-    static {
-        ProviderConfigProperty property;
-        property = new ProviderConfigProperty();
-        property.setName("claims");
-        property.setLabel("Claims");
-        property.setHelpText("Claims read from user attributes");
-        property.setType(ProviderConfigProperty.MULTIVALUED_STRING_TYPE);
-        configProperties.add(property);
-    }
-
 
     @Override
     public List<ProviderConfigProperty> getConfigProperties() {
@@ -58,12 +43,8 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
     public AccessToken transformAccessToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession keycloakSession,
                                             UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
 
-        //TODO: Find out why this errors
-        //ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
-
         // Get roles from user attributes
         List<String> msspRoles = userSession.getUser().getAttributes().get("mssp_roles");
-
         if (msspRoles != null) {
             String roles = String.join(", ", msspRoles);
             token.getOtherClaims().put("mssp_roles", roles);
@@ -75,25 +56,26 @@ public class MobileidAccessTokenMapper extends AbstractOIDCProtocolMapper implem
 
 
     public IDToken transformIDToken(IDToken token, ProtocolMapperModel mappingModel, KeycloakSession session, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
-        // When trying to configure these in dedicated scopes -> mapper details we get "Could not update mapping: 'unknown_error'"
-        //ProviderConfigProperty claims = configProperties.stream().filter(config->config.getName().equals("claims")).findFirst().orElse(null);
-
         UserModel user = userSession.getUser();
+        Map<String, List<String>> attributes =  user.getAttributes();
 
-        //TODO: For now we have to hardcode these claim values since configs cant be saved in keycloak due to error
-        String msisdn    = userSession.getUser().getUsername();
-        String givenName = user.getFirstAttribute("givenname");
-        String surname   = user.getFirstAttribute("surname");
-        String country   = user.getFirstAttribute("c");
-        String email     = user.getFirstAttribute("email");
+        for (Map.Entry<String, List<String>> entry : attributes.entrySet()) {
+            String attributeName = entry.getKey();
 
-        if (msisdn    != null)  token.setPhoneNumber(msisdn);
-        if (givenName != null)  token.setName(givenName);
-        if (surname   != null)  token.setFamilyName(surname);
-        if (country   != null)  token.setLocale(country);
-        if (email     != null)  token.setEmail(email);
-        // To add claims not available to be set with keycloak defaults, use:
-        // token.getOtherClaims().put("key","value");
+            // dont add mssp roles to ID token
+            if (attributeName.equals("mssp_roles")) continue;
+
+            List<String> attributeValues = entry.getValue();
+            List<String> multipleValues = new ArrayList<>();
+
+            for (String attributeValue : attributeValues) {
+                if (attributeValue == null) continue;
+                multipleValues.add(attributeValue);
+            }
+
+            String attributeString = String.join(",", multipleValues);
+            token.getOtherClaims().put(attributeName, attributeString);
+        }
 
         setClaim(token, mappingModel, userSession, session, clientSessionCtx);
         return token;
