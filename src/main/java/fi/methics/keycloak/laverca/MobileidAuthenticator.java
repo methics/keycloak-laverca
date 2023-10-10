@@ -159,7 +159,7 @@ public class MobileidAuthenticator implements Authenticator {
         RealmModel realm        = context.getRealm();
         newUser.setEnabled(true);
 
-        // Check if MSS_SignatureResp had roles in it
+        // Check if MSS_SignatureResp had roles in it, set to user attributes
         List<String> roles = null;
         for (ServiceResponses serviceResp : resp.ServiceResponses) {
             if (serviceResp.Description.equals("http://www.methics.fi/KiuruMSSP/v5.0.0#role")) {
@@ -176,12 +176,19 @@ public class MobileidAuthenticator implements Authenticator {
             To allow admin role to be given to user, "keycloak_admin" role should come from MSSP.
             This makes sure that no ordinary mobile user can gain illicit access
          */
-        if (realm.getName().equals("master") && roles.contains("keycloak_admin")) {
+        if (realm.getName().equals("master")) {
+            if (!roles.contains("keycloak_admin")) {
+                logger.warn("Can't give Keycloak ADMIN access to " + newUser.getUsername() +
+                            " because mobile user did not have 'keycloak_admin' role");
+                return newUser;
+            }
+
             RoleModel adminRole = realm.getRole("admin");
             if (adminRole != null) {
                 logger.info("Adding admin role for " + msisdn +" to give access to admin UI");
                 newUser.grantRole(adminRole);
             }
+
         }
 
         return newUser;
