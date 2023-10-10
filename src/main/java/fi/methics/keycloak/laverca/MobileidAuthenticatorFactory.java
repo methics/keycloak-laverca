@@ -52,6 +52,14 @@ public class MobileidAuthenticatorFactory implements AuthenticatorFactory {
         }
         {
             ProviderConfigProperty property = new ProviderConfigProperty();
+            property.setName("signature-profile");
+            property.setLabel("Signature Profile");
+            property.setType(ProviderConfigProperty.STRING_TYPE);
+            property.setHelpText("Signature profile to be used");
+            configProperties.add(property);
+        }
+        {
+            ProviderConfigProperty property = new ProviderConfigProperty();
             property.setName("enabled-subject-attributes");
             property.setLabel("Enabled Subject Attributes");
             property.setType(ProviderConfigProperty.MULTIVALUED_STRING_TYPE);
