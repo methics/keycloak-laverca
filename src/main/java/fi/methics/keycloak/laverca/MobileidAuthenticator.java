@@ -57,6 +57,7 @@ public class MobileidAuthenticator implements Authenticator {
         String apName   = config.get("ap-name");
         String apPwd    = config.get("ap-password");
         String enabledAttributes = config.get("enabled-subject-attributes");
+        String signatureProfile  = config.get("signature-profile");
         String dtbd     = (dtbdValue != null) ? dtbdValue : config.get("data-to-be-displayed") + " " + clientId;
 
         // EnabledAttributes configured in keycloak
@@ -79,7 +80,7 @@ public class MobileidAuthenticator implements Authenticator {
         builder.withDtbs(dtbs);
         builder.withMssFormat(MssClient.FORMAT_CMS);
         builder.withMsisdn(msisdn);
-        builder.withSignatureProfile(SignatureProfile.of("http://alauda.mobi/digitalSignature"));
+        builder.withSignatureProfile(SignatureProfile.of(signatureProfile));
 
         MSS_SignatureReq req = builder.build();
         req.AdditionalServices.add(new AdditionalServices("http://www.methics.fi/KiuruMSSP/v5.0.0#role"));
@@ -95,11 +96,10 @@ public class MobileidAuthenticator implements Authenticator {
 
                 // Check if user exists in keycloak, if not then create it
                 UserModel existingUser = session.users().getUserByUsername(realm, msisdn);
-                UserModel user = (existingUser == null) ? this.createUser(context, msisdn) : existingUser;
+                UserModel user = (existingUser == null) ? this.createUser(context, msisdn, resp) : existingUser;
 
                 // Set attributes and roles for current user
                 this.setAttributes(user, attrs, resp);
-                this.setMsspRoles(user, resp);
                 context.setUser(user);
                 context.success();
             }
@@ -131,9 +131,9 @@ public class MobileidAuthenticator implements Authenticator {
 
     /**
      * Sets enabled subject attributes for the user. These are the expected values to be saved from subject.
-     * @param user
-     * @param attributes
-     * @param resp
+     * @param user UserModel
+     * @param attributes List<String>
+     * @param resp MSS_SignatureResp
      */
     private void setAttributes(UserModel user, List<String> attributes, MSS_SignatureResp resp) {
         logger.info("Setting attributes for " + user.getUsername());
@@ -146,27 +146,37 @@ public class MobileidAuthenticator implements Authenticator {
     }
 
     /**
-     * Sets MSSP roles to users attributes, so they can be accessed later.
-     * @param user
-     * @param resp
+     * Creates user in keycloak, set roles from MSS_SignatureResp and gives access to keycloak admin panel based on MSSP roles.
+     * @param context AuthencationContextFlow
+     * @param msisdn String
+     * @param resp MSS_SignatureResp
+     * @return UserModel
      */
-    private void setMsspRoles(UserModel user, MSS_SignatureResp resp) {
-        for (ServiceResponses serviceResp : resp.ServiceResponses) {
-            if (serviceResp.Description.equals("http://www.methics.fi/KiuruMSSP/v5.0.0#role")) {
-                logger.info("Found MSSP roles: " + serviceResp.Roles);
-                user.setAttribute("mssp_roles", serviceResp.Roles);
-            }
-        }
-    }
-
-    private UserModel createUser(AuthenticationFlowContext context, String msisdn) {
+    private UserModel createUser(AuthenticationFlowContext context, String msisdn, MSS_SignatureResp resp) {
         logger.info("No user found for msisdn " + msisdn + ", creating user");
         KeycloakSession session = this.session;
         UserModel newUser       = session.users().addUser(context.getRealm(), msisdn);
         RealmModel realm        = context.getRealm();
         newUser.setEnabled(true);
 
-        if (realm.getName().equals("master")) {
+        // Check if MSS_SignatureResp had roles in it
+        List<String> roles = null;
+        for (ServiceResponses serviceResp : resp.ServiceResponses) {
+            if (serviceResp.Description.equals("http://www.methics.fi/KiuruMSSP/v5.0.0#role")) {
+                logger.info("Found MSSP roles " + serviceResp.Roles + " for user: " + msisdn);
+                newUser.setAttribute("mssp_roles", serviceResp.Roles);
+                roles = serviceResp.Roles;
+            }
+        }
+
+        if (roles == null) return newUser;
+
+        /*
+            To access keycloak admin ui, the user must have "admin" role given.
+            To allow admin role to be given to user, "keycloak_admin" role should come from MSSP.
+            This makes sure that no ordinary mobile user can gain illicit access
+         */
+        if (realm.getName().equals("master") && roles.contains("keycloak_admin")) {
             RoleModel adminRole = realm.getRole("admin");
             if (adminRole != null) {
                 logger.info("Adding admin role for " + msisdn +" to give access to admin UI");
