@@ -148,6 +148,12 @@ public class MobileidAuthenticator implements Authenticator {
                 UserModel existingUser = session.users().getUserByUsername(realm, msisdn);
                 UserModel user = (existingUser == null) ? this.createUser(context, msisdn, resp) : existingUser;
 
+                // User returned null because MSSP user did not have "keycloak_admin" role
+                if (user == null) {
+                    context.failure(AuthenticationFlowError.ACCESS_DENIED);
+                    return;
+                }
+
                 // Set attributes and roles for current user
                 this.setAttributes(user, attrs, resp);
                 context.setUser(user);
@@ -229,8 +235,9 @@ public class MobileidAuthenticator implements Authenticator {
         if (realm.getName().equals("master")) {
             if (!roles.contains("keycloak_admin")) {
                 logger.warn("Can't give Keycloak ADMIN access to " + newUser.getUsername() +
-                            " because mobile user did not have 'keycloak_admin' role");
-                return newUser;
+                            " because mobile user did not have 'keycloak_admin' role.");
+                // Return null so no extra users are created
+                return null;
             }
 
             RoleModel adminRole = realm.getRole("admin");
