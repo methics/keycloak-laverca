@@ -28,8 +28,6 @@ public class MobileidAuthenticator implements Authenticator {
         String query = context.getUriInfo().getRequestUri().getQuery();
         String[] params = query.split("&");
 
-        logger.info("params: " + Arrays.toString(params));
-
         // Get DTBD from the client, if they sent it.
         String dtbdValue = null;
         String msisdn = null;
@@ -42,7 +40,6 @@ public class MobileidAuthenticator implements Authenticator {
             if (param.startsWith(("msisdn="))) {
                 msisdn = param.substring(7);
                 context.getAuthenticationSession().setClientNote("msisdn", msisdn);
-                logger.info("Found MSISDN in params");
             }
         }
 
