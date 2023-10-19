@@ -28,27 +28,45 @@ public class MobileidAuthenticator implements Authenticator {
         String query = context.getUriInfo().getRequestUri().getQuery();
         String[] params = query.split("&");
 
+        logger.info("params: " + Arrays.toString(params));
+
         // Get DTBD from the client, if they sent it.
         String dtbdValue = null;
+        String msisdn = null;
         for (String param : params) {
             if (param.startsWith("dtbd=")) {
                 dtbdValue = param.substring(5);
                 context.getAuthenticationSession().setClientNote("dtbdFromUrl", dtbdValue);
-                break;
+                continue;
+            }
+            if (param.startsWith(("msisdn="))) {
+                msisdn = param.substring(7);
+                context.getAuthenticationSession().setClientNote("msisdn", msisdn);
+                logger.info("Found MSISDN in params");
             }
         }
 
         if (dtbdValue == null) logger.warn("Client application did not send DTBD");
+        if (msisdn == null)    logger.info("Client did not speciy MSISDN");
 
-        // Display mobileid form
-        Response response = context.form().createForm("mobileid-form.ftl");
-        context.challenge(response);
+        if (msisdn != null) {
+            // dont display form, go straight to action()
+            action(context);
+        } else {
+            // Display mobileid form
+            Response response = context.form().createForm("mobileid-form.ftl");
+            context.challenge(response);
+        }
     }
 
     @Override
     public void action(AuthenticationFlowContext context) {
         // Get dtbd from client note
         String dtbdValue = context.getAuthenticationSession().getClientNotes().get("dtbdFromUrl");
+
+        if (dtbdValue == null) {
+            logger.info("no dtbd value in params");
+        }
 
         // Get AP configs from keycloak
         final Map<String, String> config = context.getAuthenticatorConfig().getConfig();
@@ -64,9 +82,12 @@ public class MobileidAuthenticator implements Authenticator {
         List<String> attrs = Arrays.asList(enabledAttributes.split("##"));
         if (attrs.isEmpty()) logger.warn("Admin has not configured enabled subject attributes");
 
-        // Get the MSISDN from form
-        MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
-        String msisdn = formData.getFirst("msisdn");
+        String msisdn = context.getAuthenticationSession().getClientNotes().get("msisdn");
+        if (msisdn == null) {
+            // No MSISDN in url, get it from form
+            MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
+            msisdn = formData.getFirst("msisdn");
+        }
 
         MssClient client = new MssClient.Builder()
                 .withRestUrl(restUrl)
