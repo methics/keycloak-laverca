@@ -25,17 +25,26 @@ public class MobileidAuthenticator implements Authenticator {
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
+
+        // Get the configured allowed methods for getting MSISDN
+        final String allowedMsisdnMethod = context.getAuthenticatorConfig().getConfig().get("allowed-msisdn-method");
+        if (allowedMsisdnMethod == null) {
+            logger.error("Administrator has not configured the acceptable method(s) to receive MSISDN");
+            context.failure(AuthenticationFlowError.INTERNAL_ERROR);
+            return;
+        }
+
+        // Get the query params
         String query = context.getUriInfo().getRequestUri().getQuery();
         String[] params = query.split("&");
 
-        // Get DTBD from the client, if they sent it.
+        // Get DTBD and MSISDN from the client, if they sent it.
         String dtbdValue = null;
         String msisdn = null;
         for (String param : params) {
             if (param.startsWith("dtbd=")) {
                 dtbdValue = param.substring(5);
                 context.getAuthenticationSession().setClientNote("dtbdFromUrl", dtbdValue);
-                continue;
             }
             if (param.startsWith(("msisdn="))) {
                 msisdn = param.substring(7);
@@ -44,16 +53,39 @@ public class MobileidAuthenticator implements Authenticator {
         }
 
         if (dtbdValue == null) logger.warn("Client application did not send DTBD");
-        if (msisdn == null)    logger.info("Client did not speciy MSISDN");
+        if (msisdn == null)    logger.info("Client did not specify MSISDN");
 
-        if (msisdn != null) {
-            // dont display form, go straight to action()
-            action(context);
-        } else {
-            // Display mobileid form
+        if (allowedMsisdnMethod.equals("URL")) {
+            if (msisdn != null) {
+                // Only URL is a valid way to receive MSISDN
+                // MSISDN found in URL, proceed without displaying form
+                action(context);
+            } else {
+                // No MSISDN in the URL
+                logger.error("MSISDN only allowed to be received from URL, but request did not contain MSISDN");
+                context.failure(AuthenticationFlowError.IDENTITY_PROVIDER_ERROR);
+            }
+            return;
+        }
+
+        if (allowedMsisdnMethod.equals("FORM")) {
+            // MSISDN only allowed to be received from FORM
             Response response = context.form().createForm("mobileid-form.ftl");
             context.challenge(response);
+            return;
         }
+
+        if (allowedMsisdnMethod.equals("BOTH")) {
+            if (msisdn == null) {
+                // Both methods allowed, but request did not contain MSISDN, display form to get it
+                Response response = context.form().createForm("mobileid-form.ftl");
+                context.challenge(response);
+            } else {
+                // URL had MSISDN in it, call MSSP with it
+                action(context);
+            }
+        }
+
     }
 
     @Override

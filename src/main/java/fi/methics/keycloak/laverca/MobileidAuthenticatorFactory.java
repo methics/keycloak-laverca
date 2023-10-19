@@ -10,6 +10,7 @@ import org.keycloak.Config;
 
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class MobileidAuthenticatorFactory implements AuthenticatorFactory {
@@ -64,6 +65,16 @@ public class MobileidAuthenticatorFactory implements AuthenticatorFactory {
             property.setLabel("Enabled Subject Attributes");
             property.setType(ProviderConfigProperty.MULTIVALUED_STRING_TYPE);
             property.setHelpText("Keycloak attributes read from user's authentication certificate subject");
+            configProperties.add(property);
+        }
+        {
+            ProviderConfigProperty property = new ProviderConfigProperty();
+            property.setName("allowed-msisdn-method");
+            property.setLabel("Allowed method of getting MSISDN");
+            property.setType(ProviderConfigProperty.LIST_TYPE);
+            List<String> allowedValues = Arrays.asList("URL", "FORM", "BOTH");
+            property.setOptions(allowedValues);
+            property.setHelpText("Set the allowed method for the authn flow to get MSISDN");
             configProperties.add(property);
         }
 
