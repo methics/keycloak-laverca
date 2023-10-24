@@ -77,6 +77,15 @@ public class MobileidAuthenticatorFactory implements AuthenticatorFactory {
             property.setHelpText("Set the allowed method for the authn flow to get MSISDN");
             configProperties.add(property);
         }
+        {
+            ProviderConfigProperty property = new ProviderConfigProperty();
+            property.setName("keycloak_role_to_add");
+            property.setLabel("Role to add users");
+            property.setType(ProviderConfigProperty.STRING_TYPE);
+            property.setHelpText("if MSSP role is 'keycloak_admin', this keycloak role will be given to user");
+            configProperties.add(property);
+        }
+
 
     }
 
