@@ -226,23 +226,24 @@ public class MobileidAuthenticator implements Authenticator {
         }
 
         if (roles == null) return newUser;
-
+        if (!roles.contains("keycloak_admin")) return newUser;
         /*
-            To access keycloak admin ui, the user must have "admin" role given.
+            To access keycloak admin ui, the user must have admin role given.
+            Admin role can vary depending on configuration.
             To allow admin role to be given to user, "keycloak_admin" role should come from MSSP.
             This makes sure that no ordinary mobile user can gain illicit access
          */
-        if (!roles.contains("keycloak_admin")) {
-            logger.warn("Can't give Keycloak ADMIN access to " + newUser.getUsername() +
-                    " because mobile user did not have 'keycloak_admin' role.");
-            // Return null so no extra users are created
-            return null;
-        }
 
-        RoleModel adminRole = realm.getRole("admin");
+        // Get the configured role
+        String configuredAdminRole = context.getAuthenticatorConfig().getConfig().get("keycloak-role-to-add");
+        if (configuredAdminRole == null) return newUser;
+
+        RoleModel adminRole = realm.getRole(configuredAdminRole);
         if (adminRole != null) {
             logger.info("Adding admin role for " + msisdn +" to give access to admin UI");
             newUser.grantRole(adminRole);
+        } else {
+            logger.warn("Could not find configured admin role (or wrong configuration), can't grant admin UI access to user");
         }
 
         return newUser;
