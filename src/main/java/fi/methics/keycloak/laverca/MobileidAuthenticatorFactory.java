@@ -79,7 +79,7 @@ public class MobileidAuthenticatorFactory implements AuthenticatorFactory {
         }
         {
             ProviderConfigProperty property = new ProviderConfigProperty();
-            property.setName("keycloak_role_to_add");
+            property.setName("keycloak-role-to-add");
             property.setLabel("Role to add users");
             property.setType(ProviderConfigProperty.STRING_TYPE);
             property.setHelpText("if MSSP role is 'keycloak_admin', this keycloak role will be given to user");
