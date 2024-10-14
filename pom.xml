@@ -38,7 +38,7 @@
     <dependency>
       <groupId>org.keycloak</groupId>
       <artifactId>keycloak-services</artifactId>
-      <version>24.0.3</version>
+      <version>25.0.6</version>
       <scope>import</scope>
     </dependency>
 
